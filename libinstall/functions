@@ -1,0 +1,1119 @@
+#!/bin/bash 
+## VARS
+yes="y"
+no="n"
+ok="OK"
+fail="FAIL"
+passed="PASSED"
+warning="WARNING"
+critical="CRITICAL"
+
+# Init binary to empty to use pathfind or manual define
+GREP=""
+CAT=""
+SED=""
+CHMOD=""
+CHOWN=""
+
+## COLOR FUNCTIONS
+RES_COL="60"
+MOVE_TO_COL="\\033[${RES_COL}G"
+SETCOLOR_INFO="\\033[1;38m"
+SETCOLOR_SUCCESS="\\033[1;32m"
+SETCOLOR_FAILURE="\\033[1;31m"
+SETCOLOR_WARNING="\\033[1;33m"
+SETCOLOR_NORMAL="\\033[0;39m"
+
+#----
+## print info message
+## add info message to log file
+## @param	message info
+## @param	type info (ex: INFO, username...)
+## @Stdout	info message
+## @Globals	LOG_FILE
+#----
+function echo_info() {
+    echo -e "${1}${MOVE_TO_COL}${SETCOLOR_INFO}${2}${SETCOLOR_NORMAL}" 
+    echo -e "$1 : $2" >> $LOG_FILE
+}
+
+#----
+## print success message
+## add success message to log file
+## @param	message
+## @param	word to specify success (ex: OK)
+## @Stdout	success message
+## @Globals	LOG_FILE
+#----
+function echo_success() {
+    echo -e "${1}${MOVE_TO_COL}${SETCOLOR_SUCCESS}${2}${SETCOLOR_NORMAL}" 
+    echo -e "$1 : $2" >> $LOG_FILE
+}
+
+#----
+## print failure message
+## add failure message to log file
+## @param	message
+## @param	word to specify failure (ex: fail)
+## @Stdout	failure message
+## @Globals	LOG_FILE
+#----
+function echo_failure() {
+    echo -e "${1}${MOVE_TO_COL}${SETCOLOR_FAILURE}${2}${SETCOLOR_NORMAL}"
+    echo -e "$1 : $2" >> $LOG_FILE
+}
+
+#----
+## print passed message
+## add passed message to log file
+## @param	message
+## @param	word to specify pass (ex: passed)
+## @Stdout	passed message
+## @Globals	LOG_FILE
+#----
+function echo_passed() {
+    echo -e "${1}${MOVE_TO_COL}${SETCOLOR_WARNING}${2}${SETCOLOR_NORMAL}"
+    echo -e "$1 : $2" >> $LOG_FILE
+}
+
+#----
+## print warning message
+## add warning message to log file
+## @param	message
+## @param	word to specify warning (ex: warn)
+## @Stdout	warning message
+## @Globals	LOG_FILE
+#----
+function echo_warning() {
+    echo -e "${1}${MOVE_TO_COL}${SETCOLOR_WARNING}${2}${SETCOLOR_NORMAL}"
+    echo -e "$1 : $2" >> $LOG_FILE
+}
+
+#----
+## add message on log file
+## @param	type of message level (debug, info, ...)
+## @param	message
+## @Globals	LOG_FILE
+#----
+function log() {
+	local program="$0"
+	local type="$1"
+	shift
+	local message="$@"
+	echo -e "[$program]:$type: $message" >> $LOG_FILE
+}
+
+#----
+## define a specific variables for grep,cat,sed,... binaries
+## This functions was been use in first line on your script
+## @return 0	All is't ok
+## @return 1	problem with one variable
+## @Globals	GREP, CAT, SED, CHMOD, CHOWN
+#----
+function define_specific_binary_vars() {
+	local vars_bin="GREP CAT SED CHMOD CHOWN"
+	local var_bin_tolower=""
+	for var_bin in $vars_bin ; 
+	do
+		if [ -z $(eval echo \$$var_bin) ] ; then
+			var_bin_tolower="$(echo $var_bin | tr [:upper:] [:lower:])"
+			pathfind_ret "$var_bin_tolower" "$(echo -n $var_bin)"
+			if [ "$?" -eq 0 ] ; then
+				eval "$var_bin='$(eval echo \$$var_bin)/$var_bin_tolower'"
+				export $(echo $var_bin)
+				log "INFO" "$var_bin=$(eval echo \$$var_bin)"
+			else
+				return 1
+			fi
+		fi
+	done
+	return 0
+}
+
+#----
+## find in $PATH if binary exist
+## @param	file to test
+## @return 0	found
+## @return 1	not found
+## @Globals	PATH
+#----
+function pathfind() {
+	OLDIFS="$IFS"
+	IFS=:
+	for p in $PATH; do
+		if [ -x "$p/$*" ]; then
+			IFS="$OLDIFS"
+			return 0
+		fi
+	done
+	IFS="$OLDIFS"
+	return 1
+}
+
+#----
+## find in $PATH if binary exist and return dirname
+## @param	file to test
+## @param	global variable to set a result
+## @return 0	found
+## @return 1	not found
+## @Globals	PATH
+#----
+function pathfind_ret() {
+	local bin=$1
+	local var_ref=$2
+	local OLDIFS="$IFS"
+	IFS=:
+	for p in $PATH; do
+		if [ -x "$p/$bin" ]; then
+			IFS="$OLDIFS"
+			eval $var_ref=$p
+			return 0
+		fi
+	done
+	IFS="$OLDIFS"
+	return 1
+}
+
+#----
+## make a question with yes/no possiblity
+## use "no" response by default
+## @param	message to print
+## @param 	default response (default to no)
+## @return 0 	yes
+## @return 1 	no
+#----
+function yes_no_default() {
+	local message=$1
+	local default=${2:-$no}
+	local res="not_define"
+	while [ "$res" != "$yes" ] && [ "$res" != "$no" ] && [ ! -z "$res" ] ; do
+		echo -e "\n$message\n[y/n], default to [$default]:"
+		echo -en "> "
+		read res
+		[ -z "$res" ] && res="$default"
+	done
+	if [ "$res" = "$yes" ] ; then 
+		return 0
+	else 
+		return 1
+	fi
+}
+
+#----
+## print a message, test directory if answer is correct 
+## Loop if not a valid directory
+## @param	message
+## @param	default value (use "NO_DEFAULT" if not default value)
+## @param	global variable to set a result
+## @return 0	end
+#----
+function answer_with_testdir() {
+	local message=$1
+	local default=$2
+	local var_ref=$3
+	local res="not_define"
+	local first=0
+	while [ ! -d "$res" ] ; do
+		[ $first -eq 1 ] && echo_passed "$res is not a directory or does not exist." "$critical" 
+		echo -e "\n$message"
+		[ "$default" != "NO_DEFAULT" ] && echo -e "default to [$default]"
+		echo -en "> "
+		read res
+		if [ -z "$res" ] ; then 
+			[ $default != "NO_DEFAULT" ] && res=$default
+		fi
+		if [ -z ${res#/} ] ; then
+			echo_passed  "You select slash..."
+			res="not_define"
+		else
+			first=1
+		fi
+	done
+	eval $var_ref=$res
+	return 0
+}
+
+#----
+## print a message, create directory with answer 
+## Loop if not a valid directory (slash...)
+## @param	message
+## @param	default value (use "NO_DEFAULT" if not default value)
+## @param	global variable to set a result
+## @return 0	end
+#----
+function answer_with_createdir() {
+	local message=$1
+	local default=$2
+	local var_ref=$3
+	local res="not_define"
+	local first=0
+	while [ ! -d "$res" ] ; do
+		[ $first -eq 1 ] && echo_passed "Directory $res does not exists." "$critical"
+		echo -e "\n$message"
+		[ "$default" != "NO_DEFAULT" ] && echo -e "default to [$default]"
+		echo -en "> "
+		read res
+		if [ -z "$res" ] ; then
+			[ "$default" != "NO_DEFAULT" ] && res=$default
+		fi
+		if [ -z "${res#/}" -o "$yes" = "$res" -o "$no" = "$res" ] ; then
+			echo_passed  "You select slash..."
+			res="not_define"
+		else 
+			first=1
+			[ -d "$res" ] && break 
+			yes_no_default "Do you want me to create this directory ? [$res]"
+			if [ $? -eq 0 ] ; then
+				mkdir -p $res
+				if [ $? -ne 0 ] ; then
+					echo_passed "Could not create directory." "$critical"
+					#continue
+				fi
+				log "INFO" "Creating : $res"
+			fi
+		fi
+	done
+	eval $var_ref=$res
+	return 0
+}
+
+#----
+## print a message, test if file exists 
+## Loop if not a valid file 
+## @param	message
+## @param	default value (use "NO_DEFAULT" if not default value)
+## @param	global variable to set a result
+## @return 0	end
+#----
+function answer_with_testfile() {
+	local message=$1
+	local default=$2
+	local var_ref=$3
+	local res="not_define"
+	local first=0
+	while [ ! -f "$res" ] ; do
+		[ $first -eq 1 ] && echo_passed "$res is not a valid file." "$critical" 
+		echo -e "\n$message"
+		[ "$default" != "NO_DEFAULT" ] && echo -e "default to [$default]"
+		echo -en "> "
+		read res
+		if [ -z "$res" ] ; then 
+			[ "$default" != "NO_DEFAULT" ] && res=$default
+		fi
+		first=1
+	done
+	eval $var_ref=$res
+	return 0
+}
+
+
+#---
+## {check if syslog user exist on system}
+#----
+function check_user_syslog {
+	find_user=$SYSLOG_USER
+	res=$(${CAT} /etc/passwd | cut -d":" -f1 | ${GREP} ^${find_user}$ | wc -l)
+	
+	if [ $res -eq 1 ] ; then
+		echo_success "Finding user: $SYSLOG_USER" "$ok"
+	else 
+		echo_failure "Cannot find user: $SYSLOG_USER" "$fail"
+		yes_no_default "Do you want to create this user";
+		if [ $? -eq 0 ] ; then
+			useradd -m ${SYSLOG_USER}
+			if [ $? -eq 0 ] ; then
+				echo -e ""
+				echo_success "Create user: $SYSLOG_USER" "$ok"
+			else
+				echo -e ""
+				echo_failure "Unable to create user: $SYSLOG_USER" "$fail"
+				echo_info "Are you sure you run this script with root rights?"
+				exit 1
+			fi
+		else
+			exit 1
+		fi
+	fi
+}
+
+#---
+## {check if syslog group exist on system}
+#----
+function check_group_syslog {
+	find_group=$SYSLOG_GROUP
+	res=$(${CAT} /etc/group | cut -d":" -f1 | ${GREP} ^${find_group}$ | wc -l)
+	if [ $res -eq 1 ] ; then
+		echo_success "Finding group: $SYSLOG_GROUP" "$ok"
+	else 
+		echo_failure "Cannot find group: $SYSLOG_GROUP" "$fail"
+		yes_no_default "Do you want to create this user";
+		if [ $? -eq 0 ] ; then
+			groupadd ${SYSLOG_GROUP}
+			if [ $? -eq 0 ] ; then
+				echo -e ""
+				echo_success "Create group: $SYSLOG_GROUP" "$ok"
+			else
+				echo -e ""
+				echo_failure "Unable to create group: $SYSLOG_GROUP" "$fail"
+				echo_info "Are you sur you run this script with root rights?"
+				exit 1
+			fi
+		else
+			exit 1
+		fi
+	fi
+	
+	find_user_in_groupe=$(${CAT} /etc/group | ${GREP} syslog | cut -d":" -f4 | wc -l)
+	if [ $find_user_in_groupe -eq 1 ] ; then
+		echo_success "Finding ${SYSLOG_USER} user in $SYSLOG_GROUP group:" "$ok"
+	else
+		usermod -G ${SYSLOG_GROUP} ${SYSLOG_USER}
+		if [ $? -eq 0 ] ; then
+			echo -e ""
+			echo_success "Add ${SYSLOG_USER} to group: $SYSLOG_GROUP" "$ok"
+		else
+			echo -e ""
+			echo_failure "Unable to add ${SYSLOG_USER} to group: $SYSLOG_GROUP" "$fail"
+			echo_info "Are you sur you run this script with root rights?"
+			exit 1
+		fi
+	fi
+}
+
+#---
+## {check if syslog configuration directory exist on system}
+#----
+function check_conf_dir {
+
+	if [ -x "$DEFAULT_DIR_CONF/$*" ]; then
+		echo_success "Finding configuration directory: $DEFAULT_DIR_CONF" "$ok"
+	else 
+		echo_failure "Cannot find configuration directory: $DEFAULT_DIR_CONF" "$fail"
+		yes_no_default "Do you want to create $DEFAULT_DIR_CONF"
+		if [ "$?" -eq 0 ] ; then
+			mkdir -p $DEFAULT_DIR_CONF
+			${CHOWN} ${SYSLOG_GROUP}:${SYSLOG_USER} $DEFAULT_DIR_CONF
+			echo_success "Create configuration directory: $DEFAULT_DIR_CONF" "$ok"
+		else
+			echo_failure "Unable to continue installation without directory: $DEFAULT_DIR_CONF" "$fail"
+			exit 1
+		fi
+	fi
+}
+
+#---
+## {check if syslog configuration directory and $FILE_CONF exist on system}
+#----
+function check_file_conf {
+
+	if [ -f $DEFAULT_DIR_CONF/$FILE_CONF ]; then
+		echo_success "Finding configuration file in directory: $DEFAULT_DIR_CONF" "$ok"
+	else 
+		echo_failure "Cannot find configuration file in directory: $DEFAULT_DIR_CONF" "$fail"
+		echo_failure "Unable to continue installation without directory: $DEFAULT_DIR_CONF" "$fail"
+		exit 1
+	fi
+}
+
+#---
+## {check if mysql if running}
+#----
+function check_mysqlrun {
+	mysqlname="mysqld"
+	mysqlprocess=$(ps -u mysql | ${GREP} mysql | wc -l)
+	
+	if [ $mysqlprocess -eq 1 ]; then
+		echo_success "Mysql is running:" "$ok"
+	else
+		echo_failure "Mysql is running:" "$fail"
+		echo -e "Please start MysSQL and reload install script."
+		exit 1
+	fi
+}
+
+#---
+## {check if php is present}
+#----
+function check_phpversion {
+	phpbinary=$(php -v | ${GREP} PHP | wc -l)
+	phpversion=$(php -v | ${GREP} built | awk '{ print $2}')
+	
+	if [ $phpbinary -ge 1 ]; then
+		echo_success "PHP version: $phpversion" "$ok"
+	else
+		echo_failure "PHP is not present:" "$fail"
+		echo -e "Please install PHP and reload install script."
+		exit 1
+	fi
+}
+
+#---
+## {check if pear-DB is present}
+#----
+function check_pearDBversion {
+	pearbinary=$(pear list | ${GREP} DB | awk '{if ($1 == "DB") print $1" "$2}' | wc -l)
+	pearversion=$(pear list | ${GREP} DB | awk '{if ($1 == "DB") print $2}')
+	
+	if [ $pearbinary -ge 1 ]; then
+		echo_success "Pear-DB version: $pearversion" "$ok"
+	else
+		echo_failure "Pear-DB is not present: " "$fail"
+		echo -e "Please install Pear-DB and reload install script."
+		exit 1
+	fi
+}
+
+#---
+## {check if php-mysql is present}
+#----
+function check_phpMySQL {
+	phpbinary=$(php -i | grep MYSQL_SOCKET | wc -l)
+	
+	if [ $phpbinary -eq 1 ]; then
+		echo_success "PHP MySQL module: " "$ok"
+	else
+		echo_failure "PHP MySQL module: " "$fail"
+		echo -e "Please install php-mysql and reload install script."
+		exit 1
+	fi
+}
+
+#---
+## {get directories from user}
+#----
+function get_dir {
+	echo ""
+	echo "$line"
+	echo -e "\tGet directories for installation"
+	echo "$line"
+	answer_with_createdir "Where do you want to install files ?" $SYSLOG_DIR_BIN "SYSLOG_DIR_BIN";
+	if [ ! -d $SYSLOG_DIR_BIN ]; then
+		echo_failure "Unable to complete installation:" "$fail"
+		exit 1
+	fi
+	
+	SYSLOG_LOG_DIR="$SYSLOG_DIR_BIN/logs"
+	
+	answer_with_createdir "Where would you like to store your logs ?" $SYSLOG_LOG_DIR "SYSLOG_LOG_DIR";
+	if [ ! -d $SYSLOG_LOG_DIR ]; then
+		echo_failure "Unable to complete installation:" "$fail"
+		exit 1
+	fi
+	
+	SYSLOG_ETC_DIR="$SYSLOG_DIR_BIN/etc"
+	
+	answer_with_createdir "Where would you like to store configuration ?" $SYSLOG_ETC_DIR "SYSLOG_ETC_DIR";
+	if [ ! -d $SYSLOG_ETC_DIR ]; then
+		echo_failure "Unable to complete installation:" "$fail"
+		exit 1
+	fi
+}
+
+#---
+## {copy syslog cron}
+#----
+function copy_cron {
+	echo ""
+	echo "$line"
+	echo -e "\tInstall Syslog Cron"
+	echo "$line"
+
+	TEMP_D="/tmp/Install_Syslog_Cron"
+
+	mkdir -p $TEMP_D >> $LOG_FILE 2>> $LOG_FILE
+	if [ $? -ne 0 ]; then
+		echo_failure "Unable to complete installation:" "$fail"
+		exit 1
+	fi
+
+	mkdir -p $TEMP_D/cron >> $LOG_FILE 2>> $LOG_FILE
+	if [ $? -ne 0 ]; then
+		echo_failure "Unable to complete installation:" "$fail"
+		exit 1
+	fi
+
+	cp -Rf cron/*.php $TEMP_D/cron >> $LOG_FILE 2>> $LOG_FILE
+	
+	rm -Rf $TEMP_D/install $TEMP_D/*.log
+
+	if [ -f /etc/cron.d/$CRON_NAME ] ; then
+		/bin/rm -Rf "/etc/cron.d/$CRON_NAME"
+		if [ $? -eq 0 ]; then
+			echo_success "Removal of the old Syslog cron:" "$ok"
+		else
+			echo_failure "Removal of the old Syslog cron:" "$fail"
+			echo -e "Please delete cron file: /etc/cron.d/$CRON_NAME and reload install script"
+			exit 1
+		fi
+	fi
+
+	echo "*/2 * * * * $SYSLOG_USER php -q $SYSLOG_DIR_BIN/reloadCache.php >> $SYSLOG_LOG_DIR/reloadCache.log" >> $TEMP_D/$CRON_NAME
+	echo "59 23 * * * $SYSLOG_USER php -q $SYSLOG_DIR_BIN/tableLogRotate.php >> $SYSLOG_LOG_DIR/SyslogRotation.log" >> $TEMP_D/$CRON_NAME
+	echo "" >> $TEMP_D/$CRON_NAME
+	cron_file=$(ls $TEMP_D/$CRON_NAME | wc -l)
+	
+	if [ $cron_file -eq 1 ]; then
+		echo_success "Generation of the new Syslog cron:" "$ok"
+	else
+		echo_failure "Generation of the new Syslog cron:" "$fail"
+		echo_failure "Unable to complete installation:" "$fail"
+		exit 1
+	fi
+	
+	FILE=$TEMP_D/cron/DBconnect.php;
+
+	$SED -i -e 's|@DIR@|'"\"$SYSLOG_ETC_DIR/$PHP_FILE_CONF\""'|g' $FILE
+	if [ $? -eq 0 ]; then
+		echo_success "Change of the macros in the files:" "$ok"
+	else
+		echo_failure "Change of the macros in the files:" "$fail"
+		echo_failure "Unable to complete installation:" "$fail"
+		exit 1
+	fi
+
+	${CHMOD} -R 755 $TEMP_D/* >> $LOG_FILE 2>> $LOG_FILE
+	if [ $? -eq 0 ]; then
+		echo_success "Application of the rights on the files:" "$ok"
+	else
+		echo_failure "Application of the rights on the files:" "$fail"
+		echo_failure "Unable to complete installation:" "$fail"
+		exit 1
+	fi
+	
+	${CHOWN} -R $SYSLOG_USER:$SYSLOG_GROUP $TEMP_D/* >> $LOG_FILE 2>> $LOG_FILE
+	if [ $? -eq 0 ]; then
+		echo_success "Change of the owners on the files:" "$ok"
+	else
+		echo_failure "Change of the owners on the files:" "$fail"
+		echo_failure "Unable to complete installation:" "$fail"
+		exit 1
+	fi
+
+	${CHOWN} -R ${SYSLOG_GROUP}:${SYSLOG_USER} $SYSLOG_DIR_BIN
+	${CHOWN} -R ${SYSLOG_GROUP}:${SYSLOG_USER} $SYSLOG_LOG_DIR
+
+	old_file=$(ls $SYSLOG_DIR_BIN | wc -l)
+	if [ $old_file -gt 0 ]; then
+		rm -Rf $SYSLOG_DIR_BIN/*.php
+		if [ $? -eq 0 ]; then
+			echo_success "Removal of the old Syslog cron:" "$ok"
+		else
+			echo_failure "Removal of the old Syslog cron:" "$fail"
+			echo_failure "Unable to complete installation:" "$fail"
+			exit 1
+		fi
+	fi
+	
+	cp -Rf --preserve $TEMP_D/cron/*.php $SYSLOG_DIR_BIN/ >> $LOG_FILE 2>> $LOG_FILE
+	if [ $? -eq 0 ]; then
+		echo_success "Copy php cron files:" "$ok"
+	else
+		echo_failure "Copy php cron files:" "$fail"
+		echo_failure "Unable to complete installation:" "$fail"
+		exit 1
+	fi
+	
+	${CHMOD} 644 $TEMP_D/$CRON_NAME >> $LOG_FILE 2>> $LOG_FILE
+	${CHOWN} root:root $TEMP_D/$CRON_NAME >> $LOG_FILE 2>> $LOG_FILE
+	
+	cp -Rf --preserve $TEMP_D/$CRON_NAME /etc/cron.d/$CRON_NAME >> $LOG_FILE 2>> $LOG_FILE
+	if [ $? -eq 0 ]; then
+		echo_success "Copy cron in cron.d directory:" "$ok"
+	else
+		echo_failure "Copy cron in cron.d directory:" "$fail"
+		echo_failure "Unable to complete installation:" "$fail"
+		exit 1
+	fi
+	
+	rm -Rf $TEMP_D >> $LOG_FILE 2>> $LOG_FILE
+	if [ $? -eq 0 ]; then
+		echo_success "Erase temporay installation directory:" "$ok"
+	else
+		echo_failure "Erase temporay installation directory:" "$fail"
+	fi
+}
+
+#----
+## set value of macro @SYSLOG_PROGRAM_FIELD_SIZE@
+#----
+function set_macro() {
+	$SED -i -e 's|@SYSLOG_PROGRAM_FIELD_SIZE@|'$SYSLOG_PROGRAM_FIELD_SIZE'|g' cron/reloadCache.php
+	$SED -i -e 's|@SYSLOG_PROGRAM_FIELD_SIZE@|'$SYSLOG_PROGRAM_FIELD_SIZE'|g' cron/tableLogRotate.php
+}
+
+
+#----
+## print a message, create database with answer
+## @param	message
+## @param	default value
+## @param	global variable to set a result
+#----
+function answer_with_createdb() {
+	local message=$1
+	local default=$2
+	local var_ref=$3
+	local res=0
+	local first=0
+	
+	echo -e "\n$message" "default to [$default]"
+	echo -en "> "
+	read dbname
+	if [ "$dbname" == "" ] ; then
+		dbname=$default
+	fi
+	
+	if [ "$ROOT_PASSWORD" == "" ] ; then
+		result=`mysql -u root -e  "SHOW DATABASES;" -E | awk '/:/ {print $NF}' | ${GREP} $dbname | wc -l`
+	else
+		result=`mysql -u root -p$ROOT_PASSWORD -e  "SHOW DATABASES;" -E | awk '/:/ {print $NF}' | ${GREP} $dbname | wc -l`
+	fi
+	
+	if [ $result -eq 1 ]; then
+		echo -e "\nDatabase $dbname already exists"
+		echo_passed "Creating database $dbname:" "$passed"
+		res=1
+	else
+		yes_no_default "Do you want me to create this database ? [$dbname]"
+		if [ $? -eq 0 ] ; then
+			if [ "$ROOT_PASSWORD" == "" ] ; then
+				createdb=`mysql -u root -e "CREATE DATABASE $dbname DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;"`
+				result=`mysql -u root -e  "SHOW DATABASES;" -E | awk '/:/ {print $NF}' | ${GREP} $dbname | wc -l`
+			else
+				createdb=`mysql -u root -p$ROOT_PASSWORD -e "CREATE DATABASE $dbname DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;"`
+				result=`mysql -u root -p$ROOT_PASSWORD -e  "SHOW DATABASES;" -E | awk '/:/ {print $NF}' | ${GREP} $dbname | wc -l`
+			fi
+			
+			if [ $result -eq 1 ]; then
+				echo_success "\nCreating database $dbname:" "$ok"
+			else
+				echo_failure "\nCreating database $dbname:" "$fail"
+				echo_failure "Unable to complete installation:" "$fail"
+				exit 1
+			fi
+		else
+			echo_failure "Unable to complete installation:" "$fail"
+			exit 1
+		fi
+	fi
+	eval $var_ref=$dbname
+}
+
+#----
+## print a message, create table with answer
+## @param	database name
+## @param	table name
+#----
+function answer_with_create_table() {
+	local dbname=$1
+	local table=$2
+	test=FALSE
+
+	while [ "$test" == "FALSE" ]; do
+		echo -e "\nWhich must be the size of the field \"program\", default to [${SYSLOG_PROGRAM_FIELD_SIZE}]:"
+		echo -en "> "
+		read result
+		if [ "$(echo $result | grep "^[ [:digit:] ]*$")" ]; then
+			test=TRUE
+		fi
+	done
+
+	eval SYSLOG_PROGRAM_FIELD_SIZE=${result}
+
+	$SED -i -e 's|@SYSLOG_PROGRAM_FIELD_SIZE@|'$SYSLOG_PROGRAM_FIELD_SIZE'|g' sql/createSyslog.sql
+	$SED -i -e 's|@SYSLOG_PROGRAM_FIELD_SIZE@|'$SYSLOG_PROGRAM_FIELD_SIZE'|g' cron/reloadCache.php
+	$SED -i -e 's|@SYSLOG_PROGRAM_FIELD_SIZE@|'$SYSLOG_PROGRAM_FIELD_SIZE'|g' cron/tableLogRotate.php
+
+	yes_no_default "Do you want me to create this table \"$table\" in \"$dbname\" database ?"
+	if [ $? -eq 0 ] ; then
+		if [ "$ROOT_PASSWORD" == "" ] ; then
+			createDB=`mysql -u root $dbname < sql/createSyslog.sql`
+			result=`mysql -u root -e "use $dbname; show tables" | ${GREP} "^logs$" | ${GREP} -v grep | wc -l`
+		else
+			createDB=`mysql -u root -p$ROOT_PASSWORD $dbname < sql/createSyslog.sql`
+			result=`mysql -u root -p$ROOT_PASSWORD -e "use $dbname; show tables" | ${GREP} "^logs$" | ${GREP} -v grep | wc -l`
+		fi
+		if [ $result -eq 1 ]; then
+			echo_success "\nCreating table $table:" "$ok"
+		else
+			echo_failure "\nCreating database $table:" "$fail"
+			echo_failure "Unable to complete installation:" "$fail"
+			exit 1
+		fi
+	else
+		echo_failure "Unable to complete installation:" "$fail"
+		exit 1
+	fi
+}
+
+#----
+## test an IP address for validity:
+## @param	ip
+#----
+function valid_ip() {
+    local  ip=$1
+    local  stat=1
+
+	if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+		OIFS=$IFS
+		IFS='.'
+		ip=($ip)
+		IFS=$OIFS
+		[[ ${ip[0]} -le 255 && ${ip[1]} -le 255 \
+			&& ${ip[2]} -le 255 && ${ip[3]} -le 255 ]]
+		stat=$?
+	fi
+    return $stat
+}
+
+#----
+## print a message, create table with answer
+## @param	database name
+## @param	user name
+#----
+function answer_with_create_dbuser() {
+	local dbname=$1
+	local dbuser=$2
+	local dbip=$3
+	end=0
+	first=0
+	
+	if [ "$dbip" == "localhost" ]; then
+		echo -e "\nCreation of local db user for cron"
+		dbuser_with_ip="'$dbuser'@'localhost'"
+		IP="localhost"
+	else
+		echo -e "\nCreation of distant db user for cron"
+		while [ $end -eq 0 ] ; do
+			if [ $first -ne 0 ]; then
+				echo -e "\nIP address is not valid ?"
+			fi
+			echo -e "\nWhat is IP address of Centreon server ?"
+
+			echo -en "> "
+			read IP
+			first=1
+			valid_ip $IP
+			if [ $? -eq 0 ]; then
+				end=1
+			fi
+		done
+		dbuser_with_ip="'$dbuser'@'$IP'"
+	fi
+	
+	yes_no_default "Do you want me to create user $dbuser_with_ip ?"
+	if [ $? -eq 0 ] ; then
+		IP_CENTREON=$IP
+
+		if [ "$ROOT_PASSWORD" == "" ] ; then
+			createUser=`mysql -u root -e "GRANT SELECT , INSERT , UPDATE , DELETE, CREATE, DROP, ALTER ON $dbname . * TO $dbuser_with_ip;" -E`
+			result=`mysql -u root -e "use mysql; select * from user;" | ${GREP} $dbuser | ${GREP} $IP | ${GREP} -v grep | wc -l`
+		else
+			createUser=`mysql -u root -p$ROOT_PASSWORD -e "GRANT SELECT , INSERT , UPDATE , DELETE, CREATE, DROP, ALTER ON $dbname . * TO $dbuser_with_ip;" -E`
+			result=`mysql -u root -p$ROOT_PASSWORD -e "use mysql; select * from user;" | ${GREP} $dbuser | ${GREP} $IP | ${GREP} -v grep | wc -l`
+		fi
+		if [ $result -ne 0 ]; then
+			echo_success "\nCreate user $dbuser_with_ip:" "$ok"
+		else
+			echo_failure "\nCreate user $dbuser_with_ip:" "$fail"
+			echo_failure "Unable to complete installation:" "$fail"
+			exit 1
+		fi
+	else
+		echo_failure "Unable to complete installation:" "$fail"
+		exit 1
+	fi
+	
+	control_password $dbuser_with_ip
+}
+
+#----
+## check if table exist in database
+## @param	database name
+## @param	table name
+#----
+function check_table_in_db() {
+	dbname=$1
+	table=$2
+	
+	if [ "$ROOT_PASSWORD" == "" ] ; then
+		result=`mysql -u root -e "use $dbname; show tables" | ${GREP} "^$table$" | ${GREP} -v grep | wc -l`
+	else
+		result=`mysql -u root -p$ROOT_PASSWORD -e "use $dbname; show tables" | ${GREP} "^$table$" | ${GREP} -v grep | wc -l`
+	fi
+	if [ $result -eq 1 ]; then
+		echo -e "\nTable $table already exists"
+		echo_passed "Creating table $table:" "$passed"
+	else
+		answer_with_create_table $dbname $table
+	fi
+}
+
+#----
+## check syslog db user
+#----
+function check_db_user {
+	db=$1
+	dbuser=$2
+
+	if [ "$ROOT_PASSWORD" == "" ] ; then
+		users=$(mysql -u root -e "use mysql; select * from user;" | ${GREP} "$dbuser" | awk '{print $1}')
+	else
+		users=$(mysql -u root -p$ROOT_PASSWORD -e "use mysql; select * from user;" | ${GREP} "$dbuser" | awk '{print $1}')
+	fi
+	if [ "$users" == "" ]; then
+		nbusers=0
+	else
+		local_user=$(echo $users | ${GREP} "localhost" | wc -l)
+	fi
+	
+	if [ "$ROOT_PASSWORD" == "" ] ; then
+		nbusers=$(mysql -u root -e "use mysql; select * from user;" | ${GREP} "$dbuser" | wc -l)
+	else
+		nbusers=$(mysql -u root -p$ROOT_PASSWORD -e "use mysql; select * from user;" | ${GREP} "$dbuser" | wc -l)
+	fi
+	
+	if [ $nbusers -eq 0 ]; then
+		answer_with_create_dbuser $db $dbuser "localhost"
+		answer_with_create_dbuser $db $dbuser "0.0.0.0"
+	elif [ $nbusers -lt 2 ]; then
+		if [ $local_user -eq 1 ]; then
+			
+			echo_passed "\nCreate user '$dbuser'@'localhost':" "$passed"
+			answer_with_create_dbuser $db $dbuser "0.0.0.0"
+		else
+			echo_passed "\nCreate distant user $dbuser:" "$passed"
+			answer_with_create_dbuser $db $dbuser "localhost"
+		fi
+	fi
+}
+
+#---
+## {copy database}
+#----
+function createDB() {
+	echo ""
+	echo "$line"
+	echo -e "\tCreate syslog Database"
+	echo "$line"
+	
+	BDD="syslog"
+	TABLE="logs"
+	USER="syslogadmin"
+	
+	end=0
+	first=0
+	
+	while [ $end -eq 0 ] ; do
+		if [ $first -ne 0 ]; then
+			echo -e "\nPassword for root user is not valid ?"
+		fi
+		echo -e "What is password for root user on MySQL ?"
+		echo -en "> "
+		stty -echo
+		read password
+		stty echo
+		echo -e ""
+
+		first=1
+
+		if [ "$password" == "" ]; then
+			connection=`mysql -u root -e "use mysql; select * from user;" | ${GREP} root | ${GREP} -v grep | wc -l`
+		else
+			eval ROOT_PASSWORD=$password
+			connection=$(mysql -u root -p$ROOT_PASSWORD -e "use mysql; select * from user;" | ${GREP} root | ${GREP} -v grep | wc -l)
+		fi
+
+		if [ $connection -ne 0 ]; then
+			end=1
+		fi
+	done
+
+	answer_with_createdb "What is the database name to record syslog message ?" $BDD "BDD"
+
+	check_table_in_db $BDD $TABLE
+
+	check_db_user $BDD $USER
+}
+
+#----
+## check syslog db user
+#----
+function create_log_file {
+	echo ""
+	echo "$line"
+	echo -e "\tCreate log rotation file"
+	echo "$line"
+	echo ""
+	LOG_ROTATE_DIR="/etc/logrotate.d/"
+
+	echo "${SYSLOG_LOG_DIR}/*log {" >> $LOG_ROTATE_DIR/centreon-syslog
+	echo "		compress" >> $LOG_ROTATE_DIR/centreon-syslog
+	echo "		daily" >> $LOG_ROTATE_DIR/centreon-syslog
+	echo "		notifempty" >> $LOG_ROTATE_DIR/centreon-syslog
+	echo "		missingok" >> $LOG_ROTATE_DIR/centreon-syslog
+	echo "		rotate 7" >> $LOG_ROTATE_DIR/centreon-syslog
+	echo "		size 100M" >> $LOG_ROTATE_DIR/centreon-syslog
+	echo "}" >> $LOG_ROTATE_DIR/centreon-syslog
+	
+	if [ -f $LOG_ROTATE_DIR/centreon-syslog ]; then
+		echo_success "Create log rotate file: $LOG_ROTATE_DIR/centreon-syslog" "$ok"
+	else
+		echo_failure "Create log rotate file: $LOG_ROTATE_DIR/centreon-syslog" "$fail"
+	fi
+}
+
+#---
+## {create configuration files for centreon syslog}
+#----
+function create_conf_files {
+	echo ""
+	echo "$line"
+	echo -e "\tCreate syslog configuration files"
+	echo "$line"
+	echo ""
+	
+	DIR_FILE_CONF=$SYSLOG_ETC_DIR/$FILE_CONF
+	
+	if [ -f $DIR_FILE_CONF ]; then
+		rm -Rf $DIR_FILE_CONF
+		if [ $? -eq 0 ]; then
+			echo_success "Delete old syslog configuration file: $FILE_CONF" "$ok"
+		else
+			echo_failure "Delete old syslog configuration file: $FILE_CONF" "$fail"
+		fi
+	fi
+	
+	echo "VERSION=$VERSION" >> $DIR_FILE_CONF
+	echo "SYSLOG_USER=$SYSLOG_USER" >> $DIR_FILE_CONF
+	echo "SYSLOG_GROUP=$SYSLOG_GROUP" >> $DIR_FILE_CONF
+	echo "CRON_NAME=$CRON_NAME" >> $DIR_FILE_CONF
+	echo "BDD=$BDD" >> $DIR_FILE_CONF
+	echo "TABLE=$TABLE" >> $DIR_FILE_CONF
+	echo "USER=$USER" >> $DIR_FILE_CONF
+	echo "IP_CENTREON=$IP_CENTREON" >> $DIR_FILE_CONF
+	echo "PASSWORD=$SYSLOGADMIN_PASSWD" >> $DIR_FILE_CONF
+	echo "SYSLOG_LOG_DIR=$SYSLOG_LOG_DIR" >> $DIR_FILE_CONF
+	echo "SYSLOG_DIR_BIN=$SYSLOG_DIR_BIN" >> $DIR_FILE_CONF
+	echo "SYSLOG_ETC_DIR=$SYSLOG_ETC_DIR" >> $DIR_FILE_CONF
+	echo "SYSLOG_PROGRAM_FIELD_SIZE=$SYSLOG_PROGRAM_FIELD_SIZE" >> $DIR_FILE_CONF
+	
+	echo_success "Create syslog configuration file: $FILE_CONF" "$ok"
+	
+	DIR_PHP_FILE_CONF=$SYSLOG_ETC_DIR/$PHP_FILE_CONF
+	
+	if [ -f $DIR_PHP_FILE_CONF ]; then
+		echo_passed "Create php syslog configuration file: $DIR_PHP_FILE_CONF" "$passed"
+	else
+		echo "<?php" >> $DIR_PHP_FILE_CONF
+		echo "\$syslogOpt[\"syslog_server_db_user\"] = \"$USER\";" >> $DIR_PHP_FILE_CONF
+		echo "\$syslogOpt[\"syslog_server_db_password\"] = \"$SYSLOGADMIN_PASSWD\";" >> $DIR_PHP_FILE_CONF
+		echo "\$syslogOpt[\"syslog_server\"] = \"localhost\";" >> $DIR_PHP_FILE_CONF
+		echo "\$syslogOpt[\"syslog_db_name\"] = \"$BDD\";" >> $DIR_PHP_FILE_CONF
+		echo "\$syslogOpt[\"syslog_db_filter\"] = \"cache\";" >> $DIR_PHP_FILE_CONF
+		echo "\$syslogOpt[\"syslog_db_table\"] = \"logs\";" >> $DIR_PHP_FILE_CONF
+		echo "\$syslogOpt[\"syslog_db_rotate\"] = \"30\";" >> $DIR_PHP_FILE_CONF
+		echo "?>" >> $DIR_PHP_FILE_CONF
+		echo_success "Create php syslog configuration file: $DIR_PHP_FILE_CONF" "$ok"
+	fi
+	
+	echo_success "Set rigths on : $DIR_PHP_FILE_CONF" "$ok"
+	${CHOWN} ${SYSLOG_GROUP}:${APACHE_USER} $DIR_PHP_FILE_CONF
+	${CHMOD} 664 $DIR_PHP_FILE_CONF
+}
+
+#---
+## {check password}
+## @param	user name
+#----
+function control_password {
+	local dbuser=$1
+	end=0
+	connection=1
+	
+	yes_no_default "Do you want to add password for this user: $dbuser" "y"
+	if [ $? -eq 0 ] ; then
+		while [ $end -eq 0 ] ; do
+			echo -e "\nEnter password for dbuser"
+			echo -en "> "
+			read first_password
+			
+			echo -e "\nRetype password for dbuser"
+			echo -en "> "
+			read second_password
+			
+			if [ "$first_password" == "$second_password" ]; then
+				end=1
+			else
+				echo -e "\n\nBoth password are not the same. Please retry"
+			fi
+		done
+		SYSLOGADMIN_PASSWD=$first_password
+		
+		if [ "$SYSLOGADMIN_PASSWD" != "" ]; then
+			if [ "$password" == "" ]; then
+				connection=$(mysql -u root -e "SET PASSWORD FOR $dbuser = PASSWORD('$SYSLOGADMIN_PASSWD');") >> $LOG_FILE 2>> $LOG_FILE
+				flush_privileges=$(mysql -u root -e "FLUSH PRIVILEGES;") >> $LOG_FILE 2>> $LOG_FILE
+			else
+				connection=$(mysql -u root -p$ROOT_PASSWORD -e "SET PASSWORD FOR $dbuser = PASSWORD('$SYSLOGADMIN_PASSWD');") >> $LOG_FILE 2>> $LOG_FILE
+				flush_privileges=$(mysql -u root -p$ROOT_PASSWORD -e "FLUSH PRIVILEGES;") >> $LOG_FILE 2>> $LOG_FILE
+			fi
+			
+			if [ "$connection" == "" ]; then
+				echo_success "\nAdd password for user $dbuser:" "$ok"
+			else
+				echo_failure "\nAdd password for user $dbuser:" "$fail"
+			fi
+		fi
+	else
+		echo_passed "\nAdd password for user $dbuser:" "$passed"
+	fi
+}
+
+#---
+## {get old variables installation}
+#----
+function get_vars {
+	CRON_NAME=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} CRON_NAME | cut -d"=" -f2)
+	SYSLOG_USER=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} SYSLOG_USER | cut -d"=" -f2)
+	SYSLOG_GROUP=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} SYSLOG_GROUP | cut -d"=" -f2)
+	SYSLOG_LOG_DIR=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} SYSLOG_LOG_DIR | cut -d"=" -f2)
+	SYSLOG_DIR_BIN=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} SYSLOG_DIR_BIN | cut -d"=" -f2)
+	SYSLOG_ETC_DIR=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} SYSLOG_ETC_DIR | cut -d"=" -f2)
+	APACHE_USER=$(${CAT} /etc/passwd | ${GREP} Apache | cut -d":" -f1)
+	BDD=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} BDD | cut -d"=" -f2)
+	TABLE=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} TABLE | cut -d"=" -f2)
+	SYSLOGADMIN_PASSWD=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} PASSWORD | cut -d"=" -f2)
+	USER=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} ^USER | cut -d"=" -f2)
+	IP_CENTREON=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} IP_CENTREON | cut -d"=" -f2)
+	SYSLOG_PROGRAM_FIELD_SIZE=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} SYSLOG_PROGRAM_FIELD_SIZE | cut -d"=" -f2)
+}
+
+#---
+## {update database if necessary}
+##
+#----
+function check_update_database {
+	echo ""
+	echo "$line"
+	echo -e "\tUpdate database"
+	echo "$line"
+	echo ""
+	
+	if [ "$SYSLOGADMIN_PASSWD" == "" ]; then
+		connection=$(mysql -u $USER -e "use $BDD; SHOW TABLES;" | grep "instance") >> $LOG_FILE 2>> $LOG_FILE
+	else
+		connection=$(mysql -u $USER -p$SYSLOGADMIN_PASSWD -e "use $BDD; SHOW TABLES;" | grep "instance") >> $LOG_FILE 2>> $LOG_FILE
+	fi
+	
+	if [ "$connection" == "instance" ]; then
+		echo_success "No update available:" "$passed"
+	else
+		if [ "$SYSLOGADMIN_PASSWD" == "" ]; then
+			result=$(mysql -u $USER $BDD < sql/update-1.0-1.1.sql) >> $LOG_FILE 2>> $LOG_FILE
+		else
+			result=$(mysql -u $USER -p$SYSLOGADMIN_PASSWD $BDD < sql/update-1.0-1.1.sql) >> $LOG_FILE 2>> $LOG_FILE
+		fi
+		echo_success "Update from 1.0 to 1.1:" "$ok"
+	fi
+}
+
