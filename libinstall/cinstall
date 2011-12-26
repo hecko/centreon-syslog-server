@@ -52,7 +52,7 @@
 ## GNU General Public License for more details.
 ##
 ##    For information : infos@centreon.com
-# SVN: $Id: cinstall 351 2010-03-05 16:21:34Z lpinsivy $
+# SVN: $Id$
 
 # Enable Shell debug ?
 #set -x

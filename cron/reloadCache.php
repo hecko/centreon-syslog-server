@@ -294,6 +294,27 @@
 			}
 			return 0;
 		} else {
+			if (preg_match("/reloadCache/", $processName)) {			
+				$numberOfProcess = exec("ps -ef | grep \"".$processName.".php\" | wc -l | bc");
+				
+				if ($numberOfProcess == 0) {return 0;} # No process but 1 into centeon_syslog.instance
+				
+				$numberOfRetry == 0;
+				while($numberOfRetry < 3) {
+					sleep(10);
+					$numberOfRetry++;
+				}
+				
+				$numberOfProcess = exec("ps -ef | grep \"".$processName.".php\" | wc -l | bc");
+				if ($numberOfProcess == 0) {
+					return 0; # Process disappear
+				} else {
+					exec("ps -ef | grep \"".$processName.".php\" | grep -v \"grep\" | awk {'print $2'} | xargs -exec kill"); # kill all reloadCache.php process
+				}
+				
+				$numberOfProcess = exec("ps -ef | grep \"".$processName.".php\" | wc -l | bc");
+				if ($numberOfProcess == 0) { return 0;} # All process killed
+			}
 			return 1;
 		}
 	}
