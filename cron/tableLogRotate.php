@@ -251,11 +251,22 @@
 		$pear_syslogDB->query("RENAME TABLE cache TO cache".$today.";");
 		if (PEAR::isError($pear_syslogDB)) {
 			print "Mysql Error : ".$pear_syslogDB->getMessage()."\n";
-		}
-		else {
+		} else {
 			print "RENAME TABLE cache TO cache".$today."\n";
 		}
 		
+		$newTable = "CREATE TABLE IF NOT EXISTS `".$syslogOpt["syslog_db_name"]."`.`cache` (";
+		$newTable = $newTable." `type` enum('HOST','FACILITY','PROGRAM','PRIORITY', 'TAG') collate utf8_unicode_ci default NULL,";
+		$newTable = $newTable." `value` varchar(50) collate utf8_unicode_ci default NULL";
+		$newTable = $newTable." ) ENGINE=MEMORY DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;";
+
+		$pear_syslogDB->query($newTable);
+		if (PEAR::isError($pear_syslogDB)) {
+			print "Mysql Error : ".$pear_syslogDB->getMessage()."\n";
+		} else {
+			print "CREATE TABLE cache\n";
+		}
+
 		$pear_syslogDB->query("FLUSH TABLES");
 		if (PEAR::isError($pear_syslogDB)) {
 			print "Mysql Error : ".$pear_syslogDB->getMessage()."\n";
