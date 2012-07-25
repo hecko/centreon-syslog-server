@@ -34,8 +34,8 @@
  * Project name : Centreon Syslog
  * Module name: Centreon-Syslog-Server
  * 
- * SVN : $URL:$
- * SVN : $Id:$
+ * SVN : $URL$
+ * SVN : $Id$
  * 
  */
 
@@ -299,7 +299,7 @@
 				
 				if ($numberOfProcess == 0) {return 0;} # No process but 1 into centeon_syslog.instance
 				
-				$numberOfRetry == 0;
+				$numberOfRetry = 0;
 				while($numberOfRetry < 3) {
 					sleep(10);
 					$numberOfRetry++;
