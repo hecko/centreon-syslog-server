@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright 2005-2010 MERETHIS
+ * Copyright 2005-2012 MERETHIS
  * Centreon is developped by : Julien Mathis and Romain Le Merlus under
  * GPL Licence 2.0.
  * 
@@ -34,8 +34,8 @@
  * Project name : Centreon Syslog
  * Module name: Centreon-Syslog-Server
  * 
- * SVN : $URL:$
- * SVN : $Id:$
+ * SVN : $URL$
+ * SVN : $Id$
  * 
  */
  
@@ -258,7 +258,7 @@
 		$newTable = "CREATE TABLE IF NOT EXISTS `".$syslogOpt["syslog_db_name"]."`.`cache` (";
 		$newTable = $newTable." `type` enum('HOST','FACILITY','PROGRAM','PRIORITY', 'TAG') collate utf8_unicode_ci default NULL,";
 		$newTable = $newTable." `value` varchar(50) collate utf8_unicode_ci default NULL";
-		$newTable = $newTable." ) ENGINE=MEMORY DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;";
+		$newTable = $newTable." ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;";
 
 		$pear_syslogDB->query($newTable);
 		if (PEAR::isError($pear_syslogDB)) {

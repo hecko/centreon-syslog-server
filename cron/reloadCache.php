@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright 2005-2009 MERETHIS
+ * Copyright 2005-2012 MERETHIS
  * Centreon is developped by : Julien Mathis and Romain Le Merlus under
  * GPL Licence 2.0.
  * 
@@ -57,7 +57,7 @@
 		$query = "CREATE TABLE IF NOT EXISTS `".$table_cache_tmp."` (";
 		$query = $query." `type` enum('HOST','FACILITY','PROGRAM','PRIORITY', 'TAG') collate utf8_unicode_ci default NULL,";
 		$query = $query." `value` varchar(50) collate utf8_unicode_ci default NULL";
-		$query = $query." ) ENGINE=MEMORY DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;";
+		$query = $query." ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;";
 
 		$pear_syslogDB->query($query);
 		if (PEAR::isError($pear_syslogDB)) {
