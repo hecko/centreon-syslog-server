@@ -198,6 +198,12 @@
 			print "Mysql Error : ".$pear_syslogDB->getMessage()."\n";
 		}
 		
+		$query = "ALTER TABLE ".$table_cache." ENGINE=MyISAM";
+		$pear_syslogDB->query($query);
+		if (PEAR::isError($pear_syslogDB)) {
+			print "Mysql Error : ".$pear_syslogDB->getMessage()."\n";
+		}
+		
 		$pear_syslogDB->query("FLUSH TABLES");
 	  	if (PEAR::isError($pear_syslogDB)) {
 	   		print "Mysql Error : ".$pear_syslogDB->getMessage()."\n";
