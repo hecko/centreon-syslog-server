@@ -34,13 +34,13 @@
 #  Project name : Centreon Syslog
 #  Module name: Centreon-Syslog-Server
 #
-# SVN : $URL:$
-# SVN : $Id:$
+# SVN : $URL$
+# SVN : $Id$
 # 
 
 line="------------------------------------------------------------------------"
 NAME="centreon-syslog-server"
-VERSION="1.2.2"
+VERSION="1.2.3"
 MODULE=$NAME.$VERSION
 LOG_VERSION="Centreon $MODULE installation"
 FILE_CONF="syslog_conf.pm"
