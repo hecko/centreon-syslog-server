@@ -54,7 +54,7 @@ SYSLOG_DIR_BIN="/usr/bin/syslog"
 ROOT_PASSWORD=""
 IP_CENTREON=""
 APACHE_USER="www-data"
-SYSLOG_PROGRAM_FIELD_SIZE=15
+SYSLOG_PROGRAM_FIELD_SIZE=30
 
 #---
 ## {Print help and usage}
