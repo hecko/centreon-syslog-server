@@ -697,11 +697,14 @@ function answer_with_create_table() {
 		echo -en "> "
 		read result
 		if [ "$(echo $result | grep "^[ [:digit:] ]*$")" ]; then
+			eval SYSLOG_PROGRAM_FIELD_SIZE=${result}
 			test=TRUE
+		else
+			if [ -z $result ]; then
+				test=TRUE
+			fi
 		fi
 	done
-
-	eval SYSLOG_PROGRAM_FIELD_SIZE=${result}
 
 	$SED -i -e 's|@SYSLOG_PROGRAM_FIELD_SIZE@|'$SYSLOG_PROGRAM_FIELD_SIZE'|g' sql/createSyslog.sql
 	$SED -i -e 's|@SYSLOG_PROGRAM_FIELD_SIZE@|'$SYSLOG_PROGRAM_FIELD_SIZE'|g' cron/reloadCache.php
