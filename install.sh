@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2005-2011 MERETHIS
+# Copyright 2005-2013 MERETHIS
 # Centreon is developped by : Julien Mathis and Romain Le Merlus under
 # GPL Licence 2.0.
 # 
@@ -40,7 +40,7 @@
 
 line="------------------------------------------------------------------------"
 NAME="centreon-syslog-server"
-VERSION="1.2.3"
+VERSION="1.2.4"
 MODULE=$NAME.$VERSION
 LOG_VERSION="Centreon $MODULE installation"
 FILE_CONF="syslog_conf.pm"
