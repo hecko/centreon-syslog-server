@@ -448,22 +448,6 @@ function check_phpversion {
 }
 
 #---
-## {check if pear-DB is present}
-#----
-function check_pearDBversion {
-	pearbinary=$(pear list | ${GREP} DB | awk '{if ($1 == "DB") print $1" "$2}' | wc -l)
-	pearversion=$(pear list | ${GREP} DB | awk '{if ($1 == "DB") print $2}')
-	
-	if [ $pearbinary -ge 1 ]; then
-		echo_success "Pear-DB version: $pearversion" "$ok"
-	else
-		echo_failure "Pear-DB is not present: " "$fail"
-		echo -e "Please install Pear-DB and reload install script."
-		exit 1
-	fi
-}
-
-#---
 ## {check if php-mysql is present}
 #----
 function check_phpMySQL {

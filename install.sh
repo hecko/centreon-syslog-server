@@ -218,7 +218,6 @@ if [ "$silent_install" -eq 0 ] ; then
 	echo "$line"
 	check_mysqlrun;
 	check_phpversion;
-	check_pearDBversion;
 	check_phpMySQL;
 	
 	get_dir;
