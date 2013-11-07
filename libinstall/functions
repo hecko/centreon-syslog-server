@@ -405,6 +405,11 @@ function check_conf_dir {
 ## {check if syslog configuration directory and $FILE_CONF exist on system}
 #----
 function check_file_conf {
+	OLDFILE_CONF="syslog_conf.pm"
+
+	if [ -f $DEFAULT_DIR_CONF/$OLDFILE_CONF ] ; then
+		mv $DEFAULT_DIR_CONF/$OLDFILE_CONF $DEFAULT_DIR_CONF/$FILE_CONF
+	fi
 
 	if [ -f $DEFAULT_DIR_CONF/$FILE_CONF ]; then
 		echo_success "Finding configuration file in directory: $DEFAULT_DIR_CONF" "$ok"
