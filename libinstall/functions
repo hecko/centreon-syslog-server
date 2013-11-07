@@ -1105,7 +1105,7 @@ function check_update_database {
 			fi
 			echo_success "Update from 1.0 to 1.1:" "$ok"
 		fi
-		if [[ $last -eq 1  ]] ; then
+		if [[ $last -ne 1  ]] ; then
 			if [ "$SYSLOGADMIN_PASSWD" == "" ]; then
 				result=$(mysql -u $USER $BDD < sql/update-1.2.4.sql) >> $LOG_FILE 2>> $LOG_FILE
 			else
