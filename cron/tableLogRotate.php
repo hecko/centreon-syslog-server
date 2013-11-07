@@ -373,7 +373,7 @@
 		
 		$row = $res->fetchRow();
 		if ($row["status"] == "0") {
-			$query = "UPDATE `instance` SET `status` = '1' WHERE CONVERT( `instance`.`name` USING utf8 ) = 'tableLogRotate';";
+			$query = "UPDATE `instance` SET `status` = '1', `last` = now() WHERE CONVERT( `instance`.`name` USING utf8 ) = 'tableLogRotate';";
 			
 			$pear_syslogDB->query($query);
 			if (PEAR::isError($pear_syslogDB)) {

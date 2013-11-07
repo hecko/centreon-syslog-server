@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright 2005-2012 MERETHIS
+ * Copyright 2005-2013 MERETHIS
  * Centreon is developped by : Julien Mathis and Romain Le Merlus under
  * GPL Licence 2.0.
  * 
@@ -330,9 +330,9 @@
 	 */
 	function freeProcess() {
 		global $pear_syslogDB, $syslogOpt;
-		
-		$query = "UPDATE `instance` SET `status` = '0' WHERE CONVERT( `instance`.`name` USING utf8 ) = 'reloadCache';";
-		
+
+		$query = "UPDATE `instance` SET `status` = '1', `last` = now() WHERE CONVERT( `instance`.`name` USING utf8 ) = 'reloadCache';";
+
 		$pear_syslogDB->query($query);
 		if (PEAR::isError($pear_syslogDB)) {
 			print "Mysql Error : ".$pear_syslogDB->getMessage()."\n";
@@ -380,20 +380,67 @@
 			print "Mysql Error : ".$pear_syslogDB->getMessage();
 		}
 	}
-	
+
+	/*
+	 * If a process is blocked...
+	 * @processName name of process
+	 * @timeout time out duration
+	 */
+	function timeout($processName, $timeout) {
+		global $pear_syslogDB;
+
+		$query = "SELECT `last` FROM `instance` WHERE `name` = \"".$processName."\";";
+
+		$res =& $pear_syslogDB->query($query);
+		if (PEAR::isError($pear_syslogDB)) {
+			print "Mysql Error : ".$pear_syslogDB->getMessage();
+		}
+
+		$row = $res->fetchRow();
+
+		$query = "SELECT UNIX_TIMESTAMP(now()) - UNIX_TIMESTAMP('". $row["last"]  ."') diff;";
+
+		$res =& $pear_syslogDB->query($query);
+		if (PEAR::isError($pear_syslogDB)) {
+			print "Mysql Error : ".$pear_syslogDB->getMessage();
+		}
+
+		$row = $res->fetchRow();
+
+		if($row["diff"] > $timeout) {
+			print "WARNING : timeout (". $timeout ." seconds) reached for ".$processName." ! Setting status to 0...\n";
+			$query = "UPDATE `instance` SET `status`='0' WHERE `name` = \"".$processName."\";";
+			$res =& $pear_syslogDB->query($query);
+			if (PEAR::isError($pear_syslogDB)) {
+				print "Mysql Error : ".$pear_syslogDB->getMessage();
+			}
+			print "\n";
+		}
+	}
+
 	/*
 	 * Main program
 	 */
-	 
-	 $pear_syslogDB = getSyslogParameters();
-	 // Control if "tableLogRotate" is not running else wait 10 seconds
-	while (true) {
-		if (controlProcess("reloadCache") == 1) {exit;}
-		if (controlProcess("tableLogRotate") == 1) {sleep(10);}
-		else {break;}
-		
+
+	$pear_syslogDB = getSyslogParameters();
+	while (true) { // for tableLogRotate
+		if (controlProcess("reloadCache") == 1) {
+			print "reloadCache in progress... checking timeout at ".date("Y-m-d H:i:s")."\n";
+			timeout("reloadCache", 120);
+			exit;
+		} else {
+			break;
+		}
+
+		if (controlProcess("tableLogRotate") == 1) {
+			print "tableLogRotate in progress... checking timeout at ".date("Y-m-d H:i:s")."\n";
+			sleep(60);
+			timeout("tableLogRotate", 3600);
+		} else {
+			break;
+		}
 	}
-	
+
 	print "BEGIN RELOAD CACHE AT ".date("Y-m-d H:i:s")."\n";
 	
 	if (checkLogTable() == 0) {

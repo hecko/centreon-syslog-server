@@ -1088,19 +1088,31 @@ function check_update_database {
 	
 	if [ "$SYSLOGADMIN_PASSWD" == "" ]; then
 		connection=$(mysql -u $USER -e "use $BDD; SHOW TABLES;" | grep "instance") >> $LOG_FILE 2>> $LOG_FILE
+		last=$(mysql -u $USER -e "use $BDD; DESC instance;" | grep "last" | wc -l) >> $LOG_FILE 2>> $LOG_FILE
 	else
 		connection=$(mysql -u $USER -p$SYSLOGADMIN_PASSWD -e "use $BDD; SHOW TABLES;" | grep "instance") >> $LOG_FILE 2>> $LOG_FILE
+		last=$(mysql -u $USER -p$SYSLOGADMIN_PASSWD -e "use $BDD; DESC instance;" | grep "last" | wc -l) >> $LOG_FILE 2>> $LOG_FILE
 	fi
-	
-	if [ "$connection" == "instance" ]; then
+
+	if [[ "$connection" == "instance" ]] && [[ $last -eq 1  ]] ; then
 		echo_success "No update available:" "$passed"
 	else
-		if [ "$SYSLOGADMIN_PASSWD" == "" ]; then
-			result=$(mysql -u $USER $BDD < sql/update-1.0-1.1.sql) >> $LOG_FILE 2>> $LOG_FILE
-		else
-			result=$(mysql -u $USER -p$SYSLOGADMIN_PASSWD $BDD < sql/update-1.0-1.1.sql) >> $LOG_FILE 2>> $LOG_FILE
+		if [[ "$connection" != "instance" ]]; then
+			if [ "$SYSLOGADMIN_PASSWD" == "" ]; then
+				result=$(mysql -u $USER $BDD < sql/update-1.0-1.1.sql) >> $LOG_FILE 2>> $LOG_FILE
+			else
+				result=$(mysql -u $USER -p$SYSLOGADMIN_PASSWD $BDD < sql/update-1.0-1.1.sql) >> $LOG_FILE 2>> $LOG_FILE
+			fi
+			echo_success "Update from 1.0 to 1.1:" "$ok"
 		fi
-		echo_success "Update from 1.0 to 1.1:" "$ok"
+		if [[ $last -eq 1  ]] ; then
+			if [ "$SYSLOGADMIN_PASSWD" == "" ]; then
+				result=$(mysql -u $USER $BDD < sql/update-1.2.4.sql) >> $LOG_FILE 2>> $LOG_FILE
+			else
+				result=$(mysql -u $USER -p$SYSLOGADMIN_PASSWD $BDD < sql/update-1.2.4.sql) >> $LOG_FILE 2>> $LOG_FILE
+			fi
+			echo_success "Update from 1.x to 1.2.4:" "$ok"
+		fi
 	fi
 }
 
