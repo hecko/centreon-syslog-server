@@ -40,7 +40,7 @@
 
 line="------------------------------------------------------------------------"
 NAME="centreon-syslog-server"
-VERSION="1.2.4"
+VERSION="1.2.5"
 MODULE=$NAME.$VERSION
 LOG_VERSION="Centreon $MODULE installation"
 FILE_CONF="syslog.conf.pm"
