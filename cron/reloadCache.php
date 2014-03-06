@@ -331,7 +331,7 @@
 	function freeProcess() {
 		global $pear_syslogDB, $syslogOpt;
 
-		$query = "UPDATE `instance` SET `status` = '1', `last` = now() WHERE CONVERT( `instance`.`name` USING utf8 ) = 'reloadCache';";
+		$query = "UPDATE `instance` SET `status` = '0', `last` = now() WHERE CONVERT( `instance`.`name` USING utf8 ) = 'reloadCache';";
 
 		$pear_syslogDB->query($query);
 		if (PEAR::isError($pear_syslogDB)) {
