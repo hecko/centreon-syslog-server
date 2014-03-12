@@ -39,10 +39,3 @@ This documentation will explain to you how to install and manage a Centreon Sysl
   installation/index
   configuration/index
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
