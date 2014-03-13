@@ -405,10 +405,16 @@
 	
 	$pear_syslogDB = getSyslogParameters();
 	// Control if "reloadCache" is not running else wait 10 seconds
-	while (controlProcess("reloadCache") == 1) {
+	$try = 0;
+	while ((controlProcess("reloadCache") == 1) && ($try < 6)) {
 		sleep(10);
+		$try++;
 	}
-	 
+	if ($try == 6) {
+		print date("Y-m-d H:i:s") . " - unable to do rotation of tables because reloadCache process seems broken\n";
+		exit -1;
+	}
+
 	print "BEGIN TABLES LOGS ROTATION AT ".date("Y-m-d H:i:s")."\n";
 	$logsTables = getLogsTables();
 	dropMergeLogs();
