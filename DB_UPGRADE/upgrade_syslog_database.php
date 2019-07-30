@@ -55,10 +55,10 @@
 
 		$syslogDB = array(
 		    'phptype'  => 'mysql',
-		    'username' => "syslog_server_db_user",
-		    'password' => "syslog_server_db_password",
-		    'hostspec' => "syslog_server",
-		    'database' => "syslog_db",
+		    'username' => "root",
+		    'password' => "root_pass",
+		    'hostspec' => "localhost",
+		    'database' => "centreon_syslog",
 		);
 		
 		$columnName = "Tables_in_".$syslogDB['database'];

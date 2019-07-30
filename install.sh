@@ -40,7 +40,7 @@
 
 line="------------------------------------------------------------------------"
 NAME="centreon-syslog-server"
-VERSION="1.2.5"
+VERSION="1.3.0"
 MODULE=$NAME.$VERSION
 LOG_VERSION="Centreon $MODULE installation"
 FILE_CONF="syslog.conf.pm"
@@ -54,7 +54,6 @@ SYSLOG_DIR_BIN="/usr/bin/syslog"
 ROOT_PASSWORD=""
 IP_CENTREON=""
 APACHE_USER="www-data"
-SYSLOG_PROGRAM_FIELD_SIZE=30
 
 #---
 ## {Print help and usage}
@@ -193,10 +192,6 @@ fi
 # Interactive installation 
 if [ "$silent_install" -eq 0 ] ; then
 	APACHE_USER=$(${CAT} /etc/passwd | ${GREP} Apache | cut -d":" -f1)
-	echo -e "\nYou will now read Centreon Syslog module Licence.\\n\\tPress enter to continue."
-	read 
-	tput clear 
-	more "$BASE_DIR/LICENSE"
 
 	yes_no_default "Do you accept GPL license ?"
 	if [ "$?" -ne 0 ] ; then 
@@ -259,6 +254,10 @@ echo -e ""
 
 ${CAT} << __EOT__
 
+###############################################################################
+#                                                                             #
+#  NOW EDIT AND RUN php DB_UPGRADE/upgrade_syslog_database.php MANUALLY       #
+#                                                                             #
 ###############################################################################
 #                                                                             #
 #      Report bugs at                                                         #
