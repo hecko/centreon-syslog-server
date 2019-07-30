@@ -193,10 +193,6 @@ fi
 # Interactive installation 
 if [ "$silent_install" -eq 0 ] ; then
 	APACHE_USER=$(${CAT} /etc/passwd | ${GREP} Apache | cut -d":" -f1)
-	echo -e "\nYou will now read Centreon Syslog module Licence.\\n\\tPress enter to continue."
-	read 
-	tput clear 
-	more "$BASE_DIR/LICENSE"
 
 	yes_no_default "Do you accept GPL license ?"
 	if [ "$?" -ne 0 ] ; then 

@@ -792,14 +792,17 @@ function answer_with_create_dbuser() {
 		dbuser_with_ip="'$dbuser'@'$IP'"
 	fi
 	
-	yes_no_default "Do you want me to create user $dbuser_with_ip ?"
+	yes_no_default "Do you want me to create GRANTS for user $dbuser_with_ip ?"
 	if [ $? -eq 0 ] ; then
 		IP_CENTREON=$IP
 
 		if [ "$ROOT_PASSWORD" == "" ] ; then
 			createUser=`mysql -u root -e "GRANT SELECT , INSERT , UPDATE , DELETE, CREATE, DROP, ALTER ON $dbname . * TO $dbuser_with_ip;" -E`
+                        echo ${createUser}
 			result=`mysql -u root -e "use mysql; select * from user;" | ${GREP} $dbuser | ${GREP} $IP | ${GREP} -v grep | wc -l`
+                        echo ${result}
 		else
+			createUser=`mysql -u root -p$ROOT_PASSWORD -e "CREATE USER $dbuser_with_ip;" -E`
 			createUser=`mysql -u root -p$ROOT_PASSWORD -e "GRANT SELECT , INSERT , UPDATE , DELETE, CREATE, DROP, ALTER ON $dbname . * TO $dbuser_with_ip;" -E`
 			result=`mysql -u root -p$ROOT_PASSWORD -e "use mysql; select * from user;" | ${GREP} $dbuser | ${GREP} $IP | ${GREP} -v grep | wc -l`
 		fi
@@ -811,8 +814,7 @@ function answer_with_create_dbuser() {
 			exit 1
 		fi
 	else
-		echo_failure "Unable to complete installation:" "$fail"
-		exit 1
+		echo_failure "OK, not creating the user (I assume there is already one created with proper GRANTS)"
 	fi
 	
 	control_password $dbuser_with_ip
@@ -849,19 +851,24 @@ function check_db_user {
 
 	if [ "$ROOT_PASSWORD" == "" ] ; then
 		users=$(mysql -u root -e "use mysql; select * from user;" | ${GREP} "$dbuser" | awk '{print $1}')
+                echo ${users}
 	else
 		users=$(mysql -u root -p$ROOT_PASSWORD -e "use mysql; select * from user;" | ${GREP} "$dbuser" | awk '{print $1}')
+                echo ${users}
 	fi
 	if [ "$users" == "" ]; then
 		nbusers=0
 	else
 		local_user=$(echo $users | ${GREP} "localhost" | wc -l)
+                echo ${users}
 	fi
 	
 	if [ "$ROOT_PASSWORD" == "" ] ; then
 		nbusers=$(mysql -u root -e "use mysql; select * from user;" | ${GREP} "$dbuser" | wc -l)
+                echo ${nbusers}
 	else
 		nbusers=$(mysql -u root -p$ROOT_PASSWORD -e "use mysql; select * from user;" | ${GREP} "$dbuser" | wc -l)
+                echo ${nbusers}
 	fi
 	
 	if [ $nbusers -eq 0 ]; then
@@ -888,9 +895,9 @@ function createDB() {
 	echo -e "\tCreate syslog Database"
 	echo "$line"
 	
-	BDD="syslog"
+	BDD="centreon_syslog"
 	TABLE="logs"
-	USER="syslogadmin"
+	USER="centreon_syslog"
 	
 	end=0
 	first=0
