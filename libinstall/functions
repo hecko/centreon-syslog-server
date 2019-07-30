@@ -769,43 +769,14 @@ function answer_with_create_dbuser() {
 	end=0
 	first=0
 	
-	if [ "$dbip" == "localhost" ]; then
-		echo -e "\nCreation of local db user for cron"
-		dbuser_with_ip="'$dbuser'@'localhost'"
-		IP="localhost"
-	else
-		echo -e "\nCreation of distant db user for cron"
-		while [ $end -eq 0 ] ; do
-			if [ $first -ne 0 ]; then
-				echo -e "\nIP address is not valid ?"
-			fi
-			echo -e "\nWhat is IP address of Centreon server ?"
-
-			echo -en "> "
-			read IP
-			first=1
-			valid_ip $IP
-			if [ $? -eq 0 ]; then
-				end=1
-			fi
-		done
-		dbuser_with_ip="'$dbuser'@'$IP'"
-	fi
+	dbuser_with_ip="'$dbuser'@'%'"
 	
 	yes_no_default "Do you want me to create GRANTS for user $dbuser_with_ip ?"
 	if [ $? -eq 0 ] ; then
 		IP_CENTREON=$IP
-
-		if [ "$ROOT_PASSWORD" == "" ] ; then
-			createUser=`mysql -u root -e "GRANT SELECT , INSERT , UPDATE , DELETE, CREATE, DROP, ALTER ON $dbname . * TO $dbuser_with_ip;" -E`
-                        echo ${createUser}
-			result=`mysql -u root -e "use mysql; select * from user;" | ${GREP} $dbuser | ${GREP} $IP | ${GREP} -v grep | wc -l`
-                        echo ${result}
-		else
-			createUser=`mysql -u root -p$ROOT_PASSWORD -e "CREATE USER $dbuser_with_ip;" -E`
-			createUser=`mysql -u root -p$ROOT_PASSWORD -e "GRANT SELECT , INSERT , UPDATE , DELETE, CREATE, DROP, ALTER ON $dbname . * TO $dbuser_with_ip;" -E`
-			result=`mysql -u root -p$ROOT_PASSWORD -e "use mysql; select * from user;" | ${GREP} $dbuser | ${GREP} $IP | ${GREP} -v grep | wc -l`
-		fi
+		createUser=`mysql -u root -p$ROOT_PASSWORD -e "CREATE USER $dbuser_with_ip;" -E`
+		createUser=`mysql -u root -p$ROOT_PASSWORD -e "GRANT SELECT , INSERT , UPDATE , DELETE, CREATE, DROP, ALTER ON $dbname . * TO $dbuser_with_ip;" -E`
+                result=`mysql -u root -p$ROOT_PASSWORD -e "use mysql; select * from user;" | ${GREP} $dbuser | ${GREP} -v grep | wc -l`
 		if [ $result -ne 0 ]; then
 			echo_success "\nCreate user $dbuser_with_ip:" "$ok"
 		else
@@ -877,7 +848,7 @@ function check_db_user {
 	elif [ $nbusers -lt 2 ]; then
 		if [ $local_user -eq 1 ]; then
 			
-			echo_passed "\nCreate user '$dbuser'@'localhost':" "$passed"
+			echo_passed "\nCreate user '$dbuser'@'%':" "$passed"
 			answer_with_create_dbuser $db $dbuser "0.0.0.0"
 		else
 			echo_passed "\nCreate distant user $dbuser:" "$passed"
