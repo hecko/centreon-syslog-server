@@ -114,7 +114,7 @@
 		$newTable = $newTable." level varchar(10) default NULL,";
 		$newTable = $newTable." tag varchar(10) default NULL,";
 		$newTable = $newTable." datetime datetime default NULL,";
-		$newTable = $newTable." program varchar(@SYSLOG_PROGRAM_FIELD_SIZE@) default NULL,";
+		$newTable = $newTable." program varchar(30) default NULL,";
 		$newTable = $newTable." msg text,";
 		$newTable = $newTable." seq bigint(20) unsigned NOT NULL auto_increment,";
 		$newTable = $newTable." counter int(11) NOT NULL default '1',";
@@ -167,6 +167,7 @@
 	 * Rebuild merge table "all_logs"
 	 */
 	function mergeAllLogs() {
+                echo("Merging all logs into all_logs table");
 		global $pear_syslogDB, $syslogOpt;
 		
 		$mergeTable = "CREATE TABLE `".$syslogOpt["syslog_db_name"]."`.`all_logs` (";
@@ -176,7 +177,7 @@
 		$mergeTable = $mergeTable." `level` varchar(10) collate utf8_unicode_ci default NULL,";
 		$mergeTable = $mergeTable." `tag` varchar(10) collate utf8_unicode_ci default NULL,";
 		$mergeTable = $mergeTable." `datetime` datetime default NULL,";
-		$mergeTable = $mergeTable." `program` varchar(@SYSLOG_PROGRAM_FIELD_SIZE@) collate utf8_unicode_ci default NULL,";
+		$mergeTable = $mergeTable." `program` varchar(30) collate utf8_unicode_ci default NULL,";
 		$mergeTable = $mergeTable." `msg` text collate utf8_unicode_ci,";
 		$mergeTable = $mergeTable." `seq` bigint(20) unsigned NOT NULL auto_increment,";
 		$mergeTable = $mergeTable." `counter` int(11) NOT NULL default '1',";
@@ -191,9 +192,11 @@
 		$mergeTable = $mergeTable." KEY `host_datetime` (`host`,`datetime`)";
 		$mergeTable = $mergeTable." ) ENGINE=MRG_MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci UNION=(";
 
-		$pear_syslogDB->query("FLUSH TABLES");
+                $sql = "FLUSH TABLES";
+                echo($sql."\n");
+		$pear_syslogDB->query($sql);
 		if (PEAR::isError($pear_syslogDB)) {
-			print "Mysql Error : ".$pear_syslogDB->getMessage();
+			echo("Mysql Error : ".$pear_syslogDB->getMessage()."\n");
 		}
 
 		$logsAvailabbleTables = getLogsTables();
@@ -205,12 +208,13 @@
 
 		$mergeTable = $mergeTable."`".$syslogOpt["syslog_db_name"]."`.`logs`);";
 
+                echo($mergeTable."\n");
 		$pear_syslogDB->query($mergeTable);
 		if (PEAR::isError($pear_syslogDB)) {
-			print "Mysql Error : ".$pear_syslogDB->getMessage()."\n";
+			echo("Mysql Error : ".$pear_syslogDB->getMessage()."\n");
 		}
 		else {
-			print "CREATE MERGE TABLE all_logs\n";
+			echo("Success creating mergeTable\n");
 		}
 
 		$pear_syslogDB->query("FLUSH TABLES");

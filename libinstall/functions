@@ -623,15 +623,6 @@ function copy_cron {
 }
 
 #----
-## set value of macro @SYSLOG_PROGRAM_FIELD_SIZE@
-#----
-function set_macro() {
-	$SED -i -e 's|@SYSLOG_PROGRAM_FIELD_SIZE@|'$SYSLOG_PROGRAM_FIELD_SIZE'|g' cron/reloadCache.php
-	$SED -i -e 's|@SYSLOG_PROGRAM_FIELD_SIZE@|'$SYSLOG_PROGRAM_FIELD_SIZE'|g' cron/tableLogRotate.php
-}
-
-
-#----
 ## print a message, create database with answer
 ## @param	message
 ## @param	default value
@@ -696,24 +687,6 @@ function answer_with_create_table() {
 	local dbname=$1
 	local table=$2
 	test=FALSE
-
-	while [ "$test" == "FALSE" ]; do
-		echo -e "\nWhich must be the size of the field \"program\", default to [${SYSLOG_PROGRAM_FIELD_SIZE}]:"
-		echo -en "> "
-		read result
-		if [ "$(echo $result | grep "^[ [:digit:] ]*$")" ]; then
-			eval SYSLOG_PROGRAM_FIELD_SIZE=${result}
-			test=TRUE
-		else
-			if [ -z $result ]; then
-				test=TRUE
-			fi
-		fi
-	done
-
-	$SED -i -e 's|@SYSLOG_PROGRAM_FIELD_SIZE@|'$SYSLOG_PROGRAM_FIELD_SIZE'|g' sql/createSyslog.sql
-	$SED -i -e 's|@SYSLOG_PROGRAM_FIELD_SIZE@|'$SYSLOG_PROGRAM_FIELD_SIZE'|g' cron/reloadCache.php
-	$SED -i -e 's|@SYSLOG_PROGRAM_FIELD_SIZE@|'$SYSLOG_PROGRAM_FIELD_SIZE'|g' cron/tableLogRotate.php
 
 	yes_no_default "Do you want me to create this table \"$table\" in \"$dbname\" database ?"
 	if [ $? -eq 0 ] ; then
@@ -965,7 +938,6 @@ function create_conf_files {
 	echo "SYSLOG_LOG_DIR=$SYSLOG_LOG_DIR" >> $DIR_FILE_CONF
 	echo "SYSLOG_DIR_BIN=$SYSLOG_DIR_BIN" >> $DIR_FILE_CONF
 	echo "SYSLOG_ETC_DIR=$SYSLOG_ETC_DIR" >> $DIR_FILE_CONF
-	echo "SYSLOG_PROGRAM_FIELD_SIZE=$SYSLOG_PROGRAM_FIELD_SIZE" >> $DIR_FILE_CONF
 	
 	echo_success "Create syslog configuration file: $FILE_CONF" "$ok"
 	
@@ -1055,7 +1027,6 @@ function get_vars {
 	SYSLOGADMIN_PASSWD=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} PASSWORD | cut -d"=" -f2)
 	USER=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} ^USER | cut -d"=" -f2)
 	IP_CENTREON=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} IP_CENTREON | cut -d"=" -f2)
-	SYSLOG_PROGRAM_FIELD_SIZE=$(${CAT} $DEFAULT_DIR_CONF/$FILE_CONF | ${GREP} SYSLOG_PROGRAM_FIELD_SIZE | cut -d"=" -f2)
 }
 
 #---

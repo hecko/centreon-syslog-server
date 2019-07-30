@@ -352,7 +352,7 @@
 		$newTable = $newTable." level varchar(10) default NULL,";
 		$newTable = $newTable." tag varchar(10) default NULL,";
 		$newTable = $newTable." datetime datetime default NULL,";
-		$newTable = $newTable." program varchar(@SYSLOG_PROGRAM_FIELD_SIZE@) default NULL,";
+		$newTable = $newTable." program varchar(30) default NULL,";
 		$newTable = $newTable." msg text,";
 		$newTable = $newTable." seq bigint(20) unsigned NOT NULL auto_increment,";
 		$newTable = $newTable." counter int(11) NOT NULL default '1',";
