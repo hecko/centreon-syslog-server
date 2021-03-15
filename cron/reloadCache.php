@@ -289,9 +289,11 @@
 		if (PEAR::isError($pear_syslogDB)) {
 			print "Mysql Error : ".$pear_syslogDB->getMessage();
 		}
+
 		
 		$row = $res->fetchRow();
 		if ($row["status"] == "0") {
+                        print("Check controlProcess 01\n");
 			$query = "UPDATE `instance` SET `status` = '1' WHERE CONVERT( `instance`.`name` USING utf8 ) = 'reloadCache';";
 			
 			$pear_syslogDB->query($query);
@@ -301,6 +303,7 @@
 			return 0;
 		} else {
 			if (preg_match("/reloadCache/", $processName)) {
+                                print("Check controlProcess 02\n");
 				$numberOfProcess = exec("ps -ef | grep \"".$processName.".php\" | grep -v grep | wc -l | bc");
 
 				if ($numberOfProcess == 1) {return 0;} # No process but 1 into centeon_syslog.instance
@@ -311,11 +314,14 @@
 					$numberOfRetry++;
 				}
 
-				$numberOfProcess = exec("ps -ef | grep \"".$processName.".php\" |grep -v grep | wc -l | bc");
-				if ($numberOfProcess == 1) {
+                                $cmd = "ps -ef | grep \"".$processName.".php\" |grep -v grep | wc -l | bc";
+                                print("Check controlProcess 03\n$cmd\n");
+				$numberOfProcess = exec($cmd);
+				if ($numberOfProcess <= 2) {
 					return 0; # Process disappear
 				} else {
-					exec("ps -ef | grep \"".$processName.".php\" | grep -v grep | awk {'print $2'} | xargs -exec kill"); # kill all reloadCache.php process
+                                        print("Unable to run as the number of running processes is already $numberOfProcess\n");
+                                        exit(1);
 				}
 
 				$numberOfProcess = exec("ps -ef | grep \"".$processName.".php\" | grep -v grep |wc -l | bc");
@@ -422,35 +428,51 @@
 	 * Main program
 	 */
 
+	print "BEGIN RELOAD CACHE AT ".date("Y-m-d H:i:s")."\n";
+
 	$pear_syslogDB = getSyslogParameters();
+
+	print "TIMESTAMP 0 ".date("Y-m-d H:i:s")."\n";
+
 	while (true) { // for tableLogRotate
+                print("Checking reloadCache process state...");
 		if (controlProcess("reloadCache") == 1) {
 			print "reloadCache in progress... checking timeout at ".date("Y-m-d H:i:s")."\n";
 			timeout("reloadCache", 120);
 			exit;
 		} else {
+	                print "TIMESTAMP 01 ".date("Y-m-d H:i:s")."\n";
 			break;
 		}
 
+                print("Checking tableLogRotate process state...");
 		if (controlProcess("tableLogRotate") == 1) {
 			print "tableLogRotate in progress... checking timeout at ".date("Y-m-d H:i:s")."\n";
 			sleep(60);
 			timeout("tableLogRotate", 3600);
 		} else {
+	                print "TIMESTAMP 02 ".date("Y-m-d H:i:s")."\n";
 			break;
 		}
 	}
 
-	print "BEGIN RELOAD CACHE AT ".date("Y-m-d H:i:s")."\n";
-	
+	print "TIMESTAMP 1 ".date("Y-m-d H:i:s")."\n";
+
 	if (checkLogTable() == 0) {
 		createTemporaryTable();
+	        print "TIMESTAMP 2 ".date("Y-m-d H:i:s")."\n";
 		insertCache();
+	        print "TIMESTAMP 3 ".date("Y-m-d H:i:s")."\n";
 		createCacheTable();
+	        print "TIMESTAMP 4 ".date("Y-m-d H:i:s")."\n";
 		mergeAllCache();
 	} else {
+	        print "TIMESTAMP 5 ".date("Y-m-d H:i:s")."\n";
 		createTableLogs();
 	}
+
+	print "TIMESTAMP 6 ".date("Y-m-d H:i:s")."\n";
+
 	freeProcess();
 	print "END OF RELOAD CACHE AT ".date("Y-m-d H:i:s")."\n";
 	print "\n";
