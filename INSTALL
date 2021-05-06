@@ -1,0 +1,2 @@
+CentOS 6
+yum install php-mysql php-pear-DB php-pear-MDB2-Driver-mysql php-pear-MDB2-Driver-mysqli

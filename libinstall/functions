@@ -551,15 +551,6 @@ function copy_cron {
 	
 	FILE=$TEMP_D/cron/DBconnect.php;
 
-	$SED -i -e 's|@DIR@|'"\"$SYSLOG_ETC_DIR/$PHP_FILE_CONF\""'|g' $FILE
-	if [ $? -eq 0 ]; then
-		echo_success "Change of the macros in the files:" "$ok"
-	else
-		echo_failure "Change of the macros in the files:" "$fail"
-		echo_failure "Unable to complete installation:" "$fail"
-		exit 1
-	fi
-
 	${CHMOD} -R 755 $TEMP_D/* >> $LOG_FILE 2>> $LOG_FILE
 	if [ $? -eq 0 ]; then
 		echo_success "Application of the rights on the files:" "$ok"

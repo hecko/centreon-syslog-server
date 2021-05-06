@@ -44,8 +44,8 @@
  	/*
  	 * Import database connection information
  	 */
- 	if (file_exists(@DIR@))
-		include(@DIR@);
+ 	if (file_exists("/usr/bin/syslog/etc/syslog.conf.php"))
+		include("/usr/bin/syslog/etc/syslog.conf.php");
 	else
 		exit();
  	
